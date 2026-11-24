@@ -1,0 +1,39 @@
+# environments
+.venv/
+venv/
+env/
+.conda/
+
+# secrets
+.env
+.env.*
+*.pem
+*.key
+
+# data (download separately - see README)
+data/
+
+# python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# node
+node_modules/
+
+# temp / OS / logs
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+~$*
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# local tooling
+.claude/
+.vscode/
+.idea/

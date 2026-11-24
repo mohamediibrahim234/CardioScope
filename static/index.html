@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CardioScope</title>
+<meta name="description" content="Heart disease risk prediction from 13 clinical features (Logistic Regression, UCI Cleveland dataset).">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff3d6e' d='M12 21s-7.5-4.6-9.6-9.2C.8 8.2 3 4.5 6.6 4.5c2 0 3.4 1.1 4.2 2.3h2.4c.8-1.2 2.2-2.3 4.2-2.3 3.6 0 5.8 3.7 4.2 7.3C19.5 16.4 12 21 12 21z'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070a12; --panel:#0e1320; --panel2:#121a2b; --line:#1f2a40;
+  --text:#e8eefc; --muted:#8a97b4; --pulse:#ff3d6e; --ok:#2ee59d; --warn:#ffb547;
+  --grid:rgba(46,229,157,.06); --radius:16px;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font-family:"Space Grotesk",system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:-2;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(800px 500px at 15% 10%,rgba(255,61,110,.10),transparent 60%),radial-gradient(700px 500px at 90% 90%,rgba(46,229,157,.07),transparent 60%)}
+.wrap{width:min(1180px,100% - 32px);margin:0 auto;padding:28px 0 48px}
+
+/* ---------- Hero / monitor ---------- */
+.hero{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;margin-bottom:26px}
+.heart{width:120px;height:120px;position:relative;display:grid;place-items:center}
+.heart svg{width:100%;height:100%;filter:drop-shadow(0 0 18px rgba(255,61,110,.55));animation:beat var(--beat,0.8s) ease-in-out infinite;transform-origin:center}
+.heart .ring{position:absolute;inset:8px;border:2px solid var(--pulse);border-radius:50%;opacity:0;animation:ring var(--beat,0.8s) ease-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}15%{transform:scale(1.14)}30%{transform:scale(.97)}45%{transform:scale(1.07)}60%{transform:scale(1)}}
+@keyframes ring{0%{transform:scale(.7);opacity:.7}100%{transform:scale(1.5);opacity:0}}
+h1{margin:0;font-size:clamp(28px,4vw,44px);letter-spacing:-.02em;line-height:1.05}
+h1 span{color:var(--pulse)}
+.sub{color:var(--muted);margin:8px 0 14px;max-width:62ch;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-family:var(--mono);font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted)}
+.chip b{color:var(--text);font-weight:600}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:6px;vertical-align:middle}
+.dot.on{background:var(--ok);box-shadow:0 0 0 0 rgba(46,229,157,.6);animation:ping 1.6s infinite}
+.dot.off{background:var(--pulse)}
+@keyframes ping{70%{box-shadow:0 0 0 8px rgba(46,229,157,0)}100%{box-shadow:0 0 0 0 rgba(46,229,157,0)}}
+
+.monitor{position:relative;height:120px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,#0a1018,#0b1220);overflow:hidden;margin-bottom:22px}
+.monitor canvas{display:block;width:100%;height:100%}
+.monitor .readout{position:absolute;top:10px;right:14px;font-family:var(--mono);text-align:right;pointer-events:none}
+.readout .bpm{font-size:30px;font-weight:600;color:var(--ok);line-height:1}
+.readout .unit{font-size:11px;color:var(--muted);letter-spacing:.1em}
+.monitor .tag{position:absolute;top:10px;left:14px;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.12em}
+
+/* ---------- Layout ---------- */
+.grid{display:grid;grid-template-columns:1.35fr 1fr;gap:22px;align-items:start}
+@media (max-width:920px){.grid{grid-template-columns:1fr}.hero{grid-template-columns:1fr;text-align:left}.heart{width:90px;height:90px}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
+.card:nth-child(2){animation-delay:.12s}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.card h2{margin:0 0 4px;font-size:18px}
+.card .hint{margin:0 0 16px;color:var(--muted);font-size:13px}
+.section{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin:18px 0 10px;display:flex;align-items:center;gap:10px}
+.section::after{content:"";flex:1;height:1px;background:var(--line)}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.fields{grid-template-columns:1fr}}
+.field label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+.field label code{font-family:var(--mono);font-size:11px;opacity:.7}
+.field input,.field select{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font:inherit;font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s}
+.field input:focus,.field select:focus{border-color:var(--pulse);box-shadow:0 0 0 3px rgba(255,61,110,.18)}
+.field input:invalid:not(:placeholder-shown){border-color:var(--warn)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);font:inherit;font-size:14px;font-weight:500;padding:11px 16px;border-radius:12px;cursor:pointer;transition:transform .15s,border-color .2s,background .2s}
+.btn:hover{transform:translateY(-1px);border-color:#33415f}
+.btn:focus-visible{outline:2px solid var(--pulse);outline-offset:2px}
+.btn.primary{background:var(--pulse);border-color:var(--pulse);color:#fff;font-weight:700;position:relative;overflow:hidden}
+.btn.primary:disabled{opacity:.6;cursor:progress}
+.btn.primary .spin{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:-2px}
+.btn.primary.loading .spin{display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- Result ---------- */
+.result{position:sticky;top:20px}
+.gauge{position:relative;width:min(260px,100%);aspect-ratio:2/1.15;margin:6px auto 52px}
+.gauge svg{width:100%;height:100%;overflow:visible}
+.gauge .track{stroke:var(--line)}
+.gauge .fill{stroke:var(--muted);transition:stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1),stroke .4s}
+.gauge .needle{transform-origin:100px 100px;transition:transform 1.1s cubic-bezier(.2,.8,.2,1)}
+.gauge .val{position:absolute;left:0;right:0;bottom:-50px;text-align:center;font-family:var(--mono)}
+.gauge .val b{display:block;font-size:34px;line-height:1}
+.gauge .val span{font-size:11px;color:var(--muted);letter-spacing:.12em}
+.verdict{text-align:center;margin:14px 0 6px;font-size:22px;font-weight:700;min-height:30px}
+.verdict.ok{color:var(--ok)} .verdict.bad{color:var(--pulse)}
+.verdict.pop{animation:pop .5s cubic-bezier(.2,.8,.2,1.4)}
+@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:none;opacity:1}}
+.conf{text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px;min-height:18px}
+.bars{display:grid;gap:10px}
+.bar .row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+.bar .row span:last-child{font-family:var(--mono)}
+.bar .track{height:8px;border-radius:99px;background:var(--panel2);overflow:hidden}
+.bar .track i{display:block;height:100%;width:0;border-radius:99px;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.bar.ok i{background:var(--ok)} .bar.bad i{background:var(--pulse)}
+.error{display:none;margin-top:14px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,61,110,.4);background:rgba(255,61,110,.08);color:#ffc2d1;font-size:13px}
+.error.show{display:block}
+.note{margin-top:16px;font-size:12px;color:var(--muted);line-height:1.5;border-top:1px solid var(--line);padding-top:14px}
+footer{margin-top:28px;text-align:center;color:var(--muted);font-size:12px}
+footer a{color:var(--text)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="heart" aria-hidden="true">
+      <span class="ring"></span>
+      <svg viewBox="0 0 24 24"><path fill="#ff3d6e" d="M12 21s-7.5-4.6-9.6-9.2C.8 8.2 3 4.5 6.6 4.5c2 0 3.4 1.1 4.2 2.3h2.4c.8-1.2 2.2-2.3 4.2-2.3 3.6 0 5.8 3.7 4.2 7.3C19.5 16.4 12 21 12 21z"/></svg>
+    </div>
+    <div>
+      <h1>Cardio<span>Scope</span></h1>
+      <p class="sub">Heart disease risk from 13 clinical measurements. A Logistic Regression model trained on the UCI Cleveland dataset reads the vitals and returns the probability of heart disease.</p>
+      <div class="chips">
+        <span class="chip"><span class="dot" id="statusDot"></span><span id="statusText">connecting…</span></span>
+        <span class="chip">model <b id="modelName">—</b></span>
+        <span class="chip">test accuracy <b id="modelAcc">—</b></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="monitor" aria-hidden="true">
+    <span class="tag">ECG · LEAD II</span>
+    <canvas id="ecg"></canvas>
+    <div class="readout"><div class="bpm" id="bpm">--</div><div class="unit">BPM (THALACH)</div></div>
+  </div>
+
+  <main class="grid">
+    <section class="card">
+      <h2>Patient vitals</h2>
+      <p class="hint">Fill in the measurements, or load a real example from the dataset.</p>
+      <form id="form" novalidate>
+        <div class="section">Profile</div>
+        <div class="fields">
+          <div class="field"><label for="age">Age <code>age</code></label><input id="age" name="age" type="number" min="1" max="120" step="1" placeholder="e.g. 54" required></div>
+          <div class="field"><label for="sex">Sex <code>sex</code></label><select id="sex" name="sex" required><option value="1">Male</option><option value="0">Female</option></select></div>
+        </div>
+        <div class="section">Symptoms</div>
+        <div class="fields">
+          <div class="field"><label for="cp">Chest pain type <code>cp</code></label><select id="cp" name="cp"><option value="0">Typical angina</option><option value="1">Atypical angina</option><option value="2">Non-anginal pain</option><option value="3">Asymptomatic</option></select></div>
+          <div class="field"><label for="exang">Exercise-induced angina <code>exang</code></label><select id="exang" name="exang"><option value="0">No</option><option value="1">Yes</option></select></div>
+        </div>
+        <div class="section">Vitals &amp; labs</div>
+        <div class="fields">
+          <div class="field"><label for="trestbps">Resting blood pressure <code>trestbps</code></label><input id="trestbps" name="trestbps" type="number" min="50" max="250" step="1" placeholder="mm Hg, e.g. 130" required></div>
+          <div class="field"><label for="chol">Cholesterol <code>chol</code></label><input id="chol" name="chol" type="number" min="80" max="700" step="1" placeholder="mg/dl, e.g. 240" required></div>
+          <div class="field"><label for="fbs">Fasting blood sugar &gt; 120 <code>fbs</code></label><select id="fbs" name="fbs"><option value="0">No</option><option value="1">Yes</option></select></div>
+          <div class="field"><label for="thalach">Max heart rate <code>thalach</code></label><input id="thalach" name="thalach" type="number" min="50" max="250" step="1" placeholder="bpm, e.g. 150" required></div>
+        </div>
+        <div class="section">ECG &amp; imaging</div>
+        <div class="fields">
+          <div class="field"><label for="restecg">Resting ECG <code>restecg</code></label><select id="restecg" name="restecg"><option value="0">Normal</option><option value="1">ST-T abnormality</option><option value="2">LV hypertrophy</option></select></div>
+          <div class="field"><label for="oldpeak">ST depression <code>oldpeak</code></label><input id="oldpeak" name="oldpeak" type="number" min="0" max="10" step="0.1" placeholder="e.g. 1.0" required></div>
+          <div class="field"><label for="slope">ST slope <code>slope</code></label><select id="slope" name="slope"><option value="0">Upsloping</option><option value="1">Flat</option><option value="2">Downsloping</option></select></div>
+          <div class="field"><label for="ca">Major vessels (fluoroscopy) <code>ca</code></label><select id="ca" name="ca"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+          <div class="field"><label for="thal">Thalassemia <code>thal</code></label><select id="thal" name="thal"><option value="0">Normal</option><option value="1">Fixed defect</option><option value="2">Reversible defect</option></select></div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="submit" type="submit"><span class="spin"></span>Analyze heart</button>
+          <button class="btn" type="button" data-sample="healthy">Load healthy example</button>
+          <button class="btn" type="button" data-sample="risk">Load at-risk example</button>
+          <button class="btn" type="button" id="randomBtn" title="Random but realistic patient, drawn from the dataset's statistics">🎲 Random patient</button>
+          <button class="btn" type="reset">Reset</button>
+        </div>
+      </form>
+    </section>
+
+    <aside class="card result" aria-live="polite">
+      <h2>Diagnosis readout</h2>
+      <p class="hint">Probability of heart disease</p>
+      <div class="gauge">
+        <svg viewBox="0 0 200 115">
+          <path class="track" d="M15 100 A85 85 0 0 1 185 100" fill="none" stroke-width="14" stroke-linecap="round"/>
+          <path class="fill" id="gaugeFill" d="M15 100 A85 85 0 0 1 185 100" fill="none" stroke-width="14" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/>
+          <g class="needle" id="needle" style="transform:rotate(-90deg)"><line x1="100" y1="100" x2="100" y2="30" stroke="#e8eefc" stroke-width="3" stroke-linecap="round"/><circle cx="100" cy="100" r="7" fill="#e8eefc"/></g>
+        </svg>
+        <div class="val"><b id="riskPct">--</b><span>RISK</span></div>
+      </div>
+      <div class="verdict" id="verdict">Awaiting vitals</div>
+      <div class="conf" id="conf"></div>
+      <div class="bars" id="bars"></div>
+      <div class="error" id="error" role="alert"></div>
+      <p class="note">Educational demo only. Not a medical device and not a substitute for a doctor's assessment.</p>
+    </aside>
+  </main>
+  <footer>FastAPI · scikit-learn · <a href="docs" id="docsLink">API docs</a></footer>
+</div>
+
+<script>
+// Served by FastAPI -> same origin. Opened as a file (or from another server) -> probe local ports
+// and only accept a server whose /health looks like THIS API (other apps may sit on port 8000).
+// Override with ?api=http://host:port
+const CANDIDATES = [8000, 8002, 8010, 7860, 8001, 8080].map(p => `http://127.0.0.1:${p}`);
+let API = null;
+const isOurApi = j => j && typeof j.model_loaded === "boolean" && "test_accuracy" in j;
+async function probe(base){
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 1500);
+    const r = await fetch(base + "/health", { signal: ctl.signal }); clearTimeout(t);
+    const j = await r.json(); return isOurApi(j) ? j : null;
+  } catch { return null; }
+}
+async function resolveApi(){
+  const forced = new URLSearchParams(location.search).get("api");
+  const list = forced ? [forced.replace(/\/$/, "")]
+    : [...(location.protocol.startsWith("http") ? [location.origin] : []), ...CANDIDATES];
+  for (const base of [...new Set(list)]){
+    const j = await probe(base);
+    if (j){ API = base === location.origin ? "" : base; document.getElementById("docsLink").href = base + "/docs"; return j; }
+  }
+  API = null; return null;
+}
+
+const $ = id => document.getElementById(id);
+const form = $("form");
+const FEATURES = ["age","sex","cp","trestbps","chol","fbs","restecg","thalach","exang","oldpeak","slope","ca","thal"];
+const INTS = new Set(["age","sex","cp","fbs","restecg","exang","slope","ca","thal"]);
+// Real rows from data/heart_cleveland_upload.csv
+const SAMPLES = {
+  healthy: {age:46,sex:0,cp:1,trestbps:105,chol:204,fbs:0,restecg:0,thalach:172,exang:0,oldpeak:0,slope:0,ca:0,thal:0},
+  risk:    {age:51,sex:1,cp:3,trestbps:140,chol:298,fbs:0,restecg:0,thalach:122,exang:1,oldpeak:4.2,slope:1,ca:3,thal:2},
+};
+
+/* ---------- ECG monitor ---------- */
+const ecg = { bpm: 72, color: "#2ee59d", risk: 0 };
+(function monitor(){
+  const c = $("ecg"), ctx = c.getContext("2d");
+  let w, h, x = 0, last = 0, phase = 0, prevY = null;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  function size(){ w = c.clientWidth; h = c.clientHeight; c.width = w*dpr; c.height = h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); x = 0; prevY = null; }
+  addEventListener("resize", size); size();
+  // PQRST waveform for one beat, t in [0,1); irregular extra wiggle when risk is high
+  function wave(t){
+    const g = (m,s,a) => a*Math.exp(-((t-m)**2)/(2*s*s));
+    let v = g(.12,.025,.12) - g(.27,.008,.12) + g(.30,.012,1) - g(.33,.01,.25) + g(.55,.05,.28);
+    if (ecg.risk > .5) v -= g(.42,.04,.18*ecg.risk); // ST depression look
+    return v;
+  }
+  function frame(ts){
+    const dt = Math.min(50, ts - (last || ts)); last = ts;
+    const speed = w / 4000; // 4 s of signal across the screen
+    phase += dt / (60000 / ecg.bpm);
+    const steps = Math.max(1, Math.round(dt*speed));
+    for (let i=0;i<steps;i++){
+      const y = h*0.62 - wave(phase % 1) * h*0.45 + (Math.random()-.5)*1.2;
+      ctx.clearRect(x, 0, 16, h);
+      if (prevY !== null && x > 0){
+        ctx.strokeStyle = ecg.color; ctx.lineWidth = 2; ctx.shadowColor = ecg.color; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.moveTo(x-1, prevY); ctx.lineTo(x, y); ctx.stroke();
+      }
+      prevY = y; x += 1;
+      if (x > w){ x = 0; prevY = null; }
+    }
+    requestAnimationFrame(frame);
+  }
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) requestAnimationFrame(frame);
+})();
+
+function setBeat(bpm){
+  bpm = Math.min(220, Math.max(40, +bpm || 72));
+  ecg.bpm = bpm; $("bpm").textContent = Math.round(bpm);
+  document.documentElement.style.setProperty("--beat", (60/bpm).toFixed(2) + "s");
+}
+$("thalach").addEventListener("input", e => setBeat(e.target.value));
+setBeat(72);
+
+/* ---------- Health ---------- */
+async function checkHealth(){
+  const j = API === null ? await resolveApi() : await probe(API || location.origin);
+  if (j){
+    $("statusDot").className = "dot " + (j.model_loaded ? "on" : "");
+    $("statusText").textContent = j.model_loaded ? "model online" : "model loading…";
+    $("modelName").textContent = j.model ? "LogReg + Scaler" : "—";
+    $("modelAcc").textContent = j.test_accuracy != null ? (j.test_accuracy*100).toFixed(1) + "%" : "—";
+    if (!j.model_loaded) setTimeout(checkHealth, 2000);
+  } else {
+    API = null;
+    $("statusDot").className = "dot off"; $("statusText").textContent = "API offline - start run.bat";
+    setTimeout(checkHealth, 4000);
+  }
+}
+checkHealth();
+
+/* ---------- Form ---------- */
+document.querySelectorAll("[data-sample]").forEach(b => b.addEventListener("click", () => {
+  const s = SAMPLES[b.dataset.sample];
+  FEATURES.forEach(f => form.elements[f].value = s[f]);
+  setBeat(s.thalach);
+}));
+/* ---------- Random but realistic patient ----------
+   Pick a profile (healthy / diseased) with the dataset's class balance, then draw every feature from
+   that class's real distribution in heart_cleveland_upload.csv (mean/std for numbers, frequencies
+   for categories), clipped to the observed ranges. Max heart rate is tied to age (~220 - age). */
+const STATS = {
+  0: { age:[52.6,9.6], trestbps:[129.2,16.4], chol:[243.5,53.8], thalach:[158.6,19.0], oldpeak:[0.6,0.8],
+       sex:[.44,.56], cp:[.10,.25,.41,.24], fbs:[.86,.14], restecg:[.57,.01,.42], exang:[.86,.14],
+       slope:[.64,.30,.06], ca:[.81,.13,.04,.02], thal:[.79,.04,.17] },
+  1: { age:[56.8,7.9], trestbps:[134.6,18.9], chol:[251.9,49.7], thalach:[139.1,22.7], oldpeak:[1.6,1.3],
+       sex:[.18,.82], cp:[.05,.07,.13,.75], fbs:[.85,.15], restecg:[.40,.02,.58], exang:[.46,.54],
+       slope:[.26,.65,.09], ca:[.33,.32,.23,.12], thal:[.27,.09,.64] },
+};
+const RANGE = { age:[29,77], trestbps:[94,200], chol:[126,420], thalach:[71,202], oldpeak:[0,6.2] };
+const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+const clip = (x, [lo, hi]) => Math.min(hi, Math.max(lo, x));
+const pick = probs => { let r = Math.random() * probs.reduce((a,b) => a+b, 0); for (let i=0;i<probs.length;i++){ if ((r -= probs[i]) < 0) return i; } return probs.length-1; };
+function randomPatient(){
+  const s = STATS[Math.random() < 0.46 ? 1 : 0];
+  const p = {};
+  p.age = Math.round(clip(s.age[0] + gauss()*s.age[1], RANGE.age));
+  p.trestbps = Math.round(clip(s.trestbps[0] + gauss()*s.trestbps[1], RANGE.trestbps) / 2) * 2;
+  p.chol = Math.round(clip(s.chol[0] + gauss()*s.chol[1], RANGE.chol));
+  const ageShift = -(p.age - s.age[0]) * 0.8; // older -> lower max heart rate
+  p.thalach = Math.round(clip(Math.min(s.thalach[0] + ageShift + gauss()*s.thalach[1], 220 - p.age + 10), RANGE.thalach));
+  p.oldpeak = Math.round(clip(Math.abs(s.oldpeak[0] + gauss()*s.oldpeak[1]), RANGE.oldpeak) * 10) / 10;
+  for (const f of ["sex","cp","fbs","restecg","exang","slope","ca","thal"]) p[f] = pick(s[f]);
+  if (p.oldpeak === 0) p.slope = Math.random() < .8 ? 0 : 1; // no ST depression -> usually upsloping
+  return p;
+}
+$("randomBtn").addEventListener("click", () => {
+  const p = randomPatient();
+  FEATURES.forEach(f => form.elements[f].value = p[f]);
+  setBeat(p.thalach); showError("");
+});
+
+form.addEventListener("reset", () => setTimeout(() => { setBeat(72); showResult(null); }, 0));
+
+function showError(msg){ const e = $("error"); e.textContent = msg; e.classList.toggle("show", !!msg); }
+
+function showResult(res){
+  const risk = res ? res.probabilities["Heart Disease"] : 0;
+  const bad = res && res.prediction === 1;
+  const color = !res ? "#8a97b4" : bad ? "#ff3d6e" : "#2ee59d";
+  $("gaugeFill").style.strokeDashoffset = 100 - risk*100;
+  $("gaugeFill").style.stroke = color;
+  $("needle").style.transform = `rotate(${-90 + risk*180}deg)`;
+  $("riskPct").textContent = res ? Math.round(risk*100) + "%" : "--";
+  const v = $("verdict");
+  v.className = "verdict" + (res ? (bad ? " bad" : " ok") : "");
+  v.textContent = res ? res.label : "Awaiting vitals";
+  void v.offsetWidth; if (res) v.classList.add("pop");
+  $("conf").textContent = res ? `Model confidence ${(res.confidence*100).toFixed(1)}%` : "";
+  $("bars").innerHTML = res ? Object.entries(res.probabilities).map(([k,p]) =>
+    `<div class="bar ${k==="Heart Disease"?"bad":"ok"}"><div class="row"><span>${k}</span><span>${(p*100).toFixed(1)}%</span></div><div class="track"><i data-w="${p*100}"></i></div></div>`).join("") : "";
+  requestAnimationFrame(() => document.querySelectorAll(".bar i").forEach(i => i.style.width = i.dataset.w + "%"));
+  ecg.color = color === "#8a97b4" ? "#2ee59d" : color; ecg.risk = risk;
+}
+
+form.addEventListener("submit", async e => {
+  e.preventDefault(); showError("");
+  const payload = {};
+  for (const f of FEATURES){
+    const el = form.elements[f];
+    if (!el.checkValidity() || el.value === ""){ el.focus(); showError(`Please enter a valid value for "${f}" (${el.min||""}–${el.max||""}).`); return; }
+    payload[f] = INTS.has(f) ? parseInt(el.value, 10) : parseFloat(el.value);
+  }
+  const btn = $("submit"); btn.disabled = true; btn.classList.add("loading");
+  try {
+    if (API === null && !(await resolveApi()))
+      throw new Error("can't reach the API. Start it with run.bat, then open http://127.0.0.1:8000 (or add ?api=http://host:port).");
+    const r = await fetch(API + "/predict", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(Array.isArray(j.detail) ? j.detail.map(d => `${d.loc.at(-1)}: ${d.msg}`).join("; ") : (j.detail || r.statusText));
+    showResult(j);
+  } catch (err){
+    if (err instanceof TypeError) API = null; // network error -> re-probe next time
+    showError("Prediction failed: " + (err instanceof TypeError ? "can't reach the API. Is the server running (run.bat)?" : err.message));
+  } finally { btn.disabled = false; btn.classList.remove("loading"); }
+});
+</script>
+</body>
+</html>

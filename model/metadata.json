@@ -1,0 +1,25 @@
+{
+  "features": [
+    "age",
+    "sex",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal"
+  ],
+  "classes": {
+    "0": "No Heart Disease",
+    "1": "Heart Disease"
+  },
+  "target": "condition",
+  "model": "StandardScaler + LogisticRegression",
+  "test_accuracy": 0.9167,
+  "sklearn_version": "1.9.1"
+}
